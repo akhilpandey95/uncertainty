@@ -83,3 +83,33 @@ def plot_heldout_prediction(input_vals, probs,
 
   canvas.print_figure(fname, format='png')
   print('saved {}'.format(fname))
+
+# function for plotting training via deep ensembles
+def plot_training_deep_ens():
+    preds, sigmas = [], []
+    for j in range(len(train_x)):
+        mu, sigma = get_intermediate([[train_x[j]]])
+        preds.append(mu.reshape(1,)[0])
+        sigmas.append(sigma.reshape(1,)[0])plt.figure(1, figsize=(15, 9))
+
+    plt.plot([i[0] for i in train_x], [i for i in train_y])
+    plt.plot([i[0] for i in train_x], [i for i in preds], 'b', linewidth=3)
+    upper = [i+k for i,k in zip(preds, sigmas)]
+    lower = [i-k for i,k in zip(preds, sigmas)]plt.plot([i[0] for i in train_x], [i for i in upper], 'r', linewidth = 3)
+    plt.plot([i[0] for i in train_x], [i for i in lower], 'r', linewidth = 3)
+    plt.plot([i[0] for i in train_x], [pow_fun(i[0]) for i in train_x], 'y', linewidth = 2)
+
+# function for plotting testing via deep ensembles
+def plot_test_deep_ens():
+    x_ax = np.linspace(-4, 4, num=200)
+    preds, sigmas = [], []
+    for j in range(len(x_ax)):
+        mu, sigma = get_intermediate([[np.array([x_ax[j]])]])
+        preds.append(mu.reshape(1,)[0])
+        sigmas.append(sigma.reshape(1,)[0])plt.figure(1, figsize=(15, 9))
+
+    plt.plot([i for i in x_ax], [i for i in preds], 'b', linewidth=3)
+    upper = [i+k for i,k in zip(preds, sigmas)]
+    lower = [i-k for i,k in zip(preds, sigmas)]plt.plot([i for i in x_ax], [i for i in upper], 'r', linewidth = 3)
+    plt.plot([i for i in x_ax], [i for i in lower], 'r', linewidth = 3)
+    plt.plot([i for i in x_ax], [pow_fun(i) for i in x_ax], 'y', linewidth = 2)

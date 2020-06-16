@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 # feedforward network for compound target prediction
-class SmilesLSTM(Model):
+class SmilesLSTM(tf.keras.Model):
     """
     Class object for SmilesLSTM
 
@@ -19,107 +19,392 @@ class SmilesLSTM(Model):
     Returns
     -------
     Neural Network Model
-        keras.model.Model
+        tf.keras.Model
 
     """
+
     # function for preparing the X & Y for the dataset
     def __init__(self):
-        """
-        Build the Vanilla style neural network model and compile it
+    """
+    Build the Recurrent neural network model and compile it
 
-        Parameters
-        ----------
-        No arguments
+    Parameters
+    ----------
+    No arguments
 
-        Returns
-        -------
-        Nothing
-            None
+    Returns
+    -------
+    Nothing
+        None
 
-        """
+    """
         # super class the keras model
         super(SmilesLSTM, self).__init__()
 
-        # create the model
-        self.model = Sequential()
-
         # add the first hidden layer with 64 neurons, relu activation
-        self.model.add(tf.keras.layers.Dense(512, activation='selu', input_dim=21))
+        self.dense1 = tf.keras.layers.Dense(512, activation='selu', input_dim=21)
 
         # add a 1D Convolutional layer with 32 kernels
-        self.model.add(tf.keras.layers.Conv1D(32, 4, strides=2, activation='selu', dropout=0.5))
+        self.conv1 = tf.keras.layers.Conv1D(32, 4, strides=2, activation='selu', dropout=0.5)
 
         # add a max pooling layer to the 1D Convolutional layer
-        self.model.add(tf.keras.layers.MaxPool1D())
+        self.maxpool1 = tf.keras.layers.MaxPool1D()
 
         # add an LSTM layer with 128 units
-        self.model.add(tf.keras.layers.LSTM(128, dropout=0.1, return_sequences=True))
+        self.lstm1 = tf.keras.layers.LSTM(128, dropout=0.1, return_sequences=True)
 
         # add an LSTM layer with 512 units
-        self.model.add(tf.keras.layers.LSTM(512, dropout=0.1))
+        self.lstm2 = tf.keras.layers.LSTM(512, dropout=0.1)
 
         # add the single output layer
-        self.model.add(tf.keras.layers.Dense())
+        self.output = tf.keras.layers.Dense(bias_regularizer=tf.keras.regularizers.l1_l2(l1=0, l2=0.000000001))
 
-        # add an L1 weight regularization
-        self.model.add(tf.keras.regularizers.l1(l=0.0))
+    # function for compiling the model
+    @tf.function
+    def call(self, x):
+        """
+        Compile the neural network model
 
-        # add an L2 weight regularization
-        self.model.add(tf.keras.regularizers.l2(l=0.000000001))
+        Parameters
+        ----------
+        arg1 | model: keras.model.Model
+            A compiled keras neural network model to train
+        arg2 | X: numpy.ndarray
+            The training samples containing all the predictors
 
-        # use the rmsprop optimizer
-        self.rms = tf.keras.optimizers.Adam(learning_rate=0.0001)
+        Returns
+        -------
+        Neural Network Model
+            tf.keras.Model
 
-        # compile the model
-        self.model.compile(optimizer=self.rms, loss='binary_crossentropy', metrics =['accuracy'])
+        """
+        try:
+            # activation on the first hidden layer with 64 neurons, relu activation
+            x = self.dense1(x)
 
-    # function for training the neural network model
-    def train(self, epochs, batch_size, X_train, X_test, Y_train, Y_test, stopping=True):
+            # activation on a 1D Convolutional layer with 32 kernels
+            x = self.conv1(x)
+
+            # activation on a max pooling layer to the 1D Convolutional layer
+            x = self.maxpool1(x)
+
+            # activation on an LSTM layer with 128 units
+            x = self.lstm1(x)
+
+            # activation on an LSTM layer with 512 units
+            x = self.lstm2(x)
+
+            # return the output
+            return self.output(x)
+        except:
+            return tf.keras.Model()
+
+    # train the model
+    @tf.function
+    def train_step(self, features, labels):
         """
         Fit the neural network model
 
         Parameters
         ----------
         arg1 | model: keras.model.Model
-            A compiled keras neural network model to train
-        arg2 | X_train: numpy.ndarray
+            A compiled tensorflow neural network model to train
+        arg2 | features: numpy.ndarray
             The training samples containing all the predictors
-        arg3 | X_test: numpy.ndarray
-            The test samples containing all the predictors
-        arg4 | Y_train: numpy.ndarray
+        arg3 | labels: numpy.ndarray
             The training samples containing values for the target variable
-        arg5 | Y_test: numpy.ndarray
+        
+        Returns
+        -------
+        Array, Array
+            numpy.ndarray, numpy.ndarray
+
+        """
+        self.train_loss_fn = tf.keras.metrics.Mean(name='train_loss')
+        self.train_metrics_fn = tf.keras.metrics.SparseCategoricalAccuracy(name='train_metrics')
+
+        with tf.GradientTape() as tape:
+            predictions = self.model(features, training=True)
+            loss = loss_object(labels, predictions)
+
+        # gather the gradients
+        gradients = tape.gradient(loss, model.trainable_variables)
+
+        # backpropagate and optimize the gradients 
+        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+        # collect the losses
+        self.train_losses = self.train_loss_fn(loss)
+
+        # collect the metrics
+        self.train_metrics = self.train_metrics_fn(labels, predictions)
+
+        # return the losses and metrics
+        return self.train_losses, self.train_metrics
+
+    # evaluate the model
+    @tf.function
+    def test_step(self, features, labels):
+        """
+        Evaluate the neural network model
+
+        Parameters
+        ----------
+        arg1 | model: keras.model.Model
+            A trained tensorflow neural network model to test
+        arg2 | features: numpy.ndarray
+            The test samples containing all the predictors
+        arg3 | labels: numpy.ndarray
             The test samples containing values for the target variable
-        arg6 | stopping: boolean
-        A flag asserting if early stopping should or shouldn't be used for training
+        
+        Returns
+        -------
+        Array, Array
+            numpy.ndarray, numpy.ndarray
+
+        """
+        self.test_loss_fn = tf.keras.metrics.Mean(name='test_loss')
+        self.test_metrics_fn = tf.keras.metrics.SparseCategoricalAccuracy(name='test_metrics')
+
+        with tf.GradientTape() as tape:
+            predictions = self.model(features, training=False)
+            loss = loss_object(labels, predictions)
+
+        # gather the gradients
+        gradients = tape.gradient(loss, model.trainable_variables)
+
+        # backpropagate and optimize the gradients 
+        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+        # collect the losses
+        self.test_losses = self.test_loss_fn(loss)
+
+        # collect the metrics
+        self.test_metrics = self.test_metrics_fn(labels, predictions)
+
+        # return the losses and metrics
+        return self.test_losses, self.test_metrics
+
+    # function to put it all together
+    def go(self, epochs=10):
+        """
+        Fit the neural network model
+
+        Parameters
+        ----------
+        arg1 | model: int
+            The number of iterations the neural network model has to run
 
         Returns
         -------
         Neural Network Model
-            keras.model.Model
+            tf.keras.Model
+        """
+        for epoch in range(epochs):
+            # Reset the metrics at the start of the next epoch
+            self.train_loss_fn.reset_states()
+            self.train_metrics_fn.reset_states()
+            self.test_loss_fn.reset_states()
+            self.test_metrics_fn.reset_states()
+
+            for X_train, y_train in train_ds:
+                self.train_step(X_train, y_train)
+
+            for X_test, y_test in test_ds:
+                self.test_step(X_test, y_test)
+
+            # template for printing
+            template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}'
+            print(template.format(epoch + 1,
+                                  self.train_loss_fn.result(),
+                                  self.train_metrics_fn.result() * 100,
+                                  self.test_loss_fn.result(),
+                                  self.test_metrics_fn.result() * 100))
+
+
+# function class for SmilesLSTM Bayesian network
+class SmilesLSTMCell_Bayesian(tf.keras.layers.LSTMCell):
+    """
+    Class object for Bayesian recurrent network for SmilesLSTM architecture
+
+    Parameters
+    ----------
+    No arguments
+
+    Returns
+    -------
+    Neural Network Model
+        tf.keras.Model
+
+    """
+    def __init__(self, num_units, prior, is_training, name, **kwargs):
+
+        super(SmilesLSTM_Bayesian, self).__init__(num_units, **kwargs)
+
+        self.w = None
+        self.b = None
+        self.prior = prior
+        self.layer_name = name
+        self.isTraining = is_training
+        self.num_units = num_units
+        self.kl_loss=None
+
+    def call(self, inputs, state):
+
+        if self.w is None:
+            size = inputs.get_shape()[-1].value
+            self.w, self.w_mean, self.w_sd = variationalPosterior((size+self.num_units, 4*self.num_units), self.layer_name+'_weights', self.prior, self.isTraining)
+            self.b, self.b_mean, self.b_sd = variationalPosterior((4*self.num_units,1), self.layer_name+'_bias', self.prior, self.isTraining)
+
+        cell, hidden = state
+        concat_inputs_hidden = tf.concat([inputs, hidden], 1)
+        concat_inputs_hidden = tf.nn.bias_add(tf.matmul(concat_inputs_hidden, self.w), tf.squeeze(self.b))
+        # Gates: Input, New, Forget and Output
+        i, j, f, o = tf.split(value=concat_inputs_hidden, num_or_size_splits=4, axis=1)
+
+        # create the new states
+        new_cell = (cell * tf.sigmoid(f + self._forget_bias) + tf.sigmoid(i) * self._activation(j))
+        new_hidden = self._activation(new_cell) * tf.sigmoid(o)
+        new_state = tf.compat.v1.nn.rnn_cell.LSTMStateTuple(new_cell, new_hidden)
+
+        # return the states
+        return new_hidden, new_state
+
+class SmilesLSTM:
+
+    def __init__(self, training):
+
+        self.LSTM_KL=0
+        self.embedding_dim = 300  # the number of hidden units in each RNN
+        self.keep_prob = 0.5
+        self.batch_size = 512
+        self.lstm_sizes = [128, 64]  # number hidden layer in each LSTM
+        self.num_classes = 2
+        self.max_sequence_length = 100
+        self.prior=(0,1) #univariator prior
+        self.isTraining=training
+
+
+        with tf.variable_scope('rnn_i/o'):
+            # use None for batch size and dynamic sequence length
+            self.inputs = tf.placeholder(tf.float32, shape=[None, None, self.embedding_dim])
+            self.groundtruths = tf.placeholder(tf.float32, shape=[None, self.num_classes])
+
+        with tf.variable_scope('rnn_cell'):
+            self.initial_state, self.final_lstm_outputs, self.final_state, self.cell = self.build_lstm_layers(self.lstm_sizes, self.inputs,self.keep_prob, self.batch_size)
+
+
+
+            self.softmax_w, self.softmax_w_mean, self.softmax_w_std=  variationalPosterior((self.lstm_sizes[-1], self.num_classes), "softmax_w", self.prior, self.isTraining)
+            self.softmax_b, self.softmax_b_mean, self.softmax_b_std = variationalPosterior((self.num_classes), "softmax_b", self.prior, self.isTraining)
+            self.logits=tf.nn.xw_plus_b(self.final_lstm_outputs,  self.softmax_w,self.softmax_b)
+
+        with tf.variable_scope('rnn_loss', reuse=tf.AUTO_REUSE):
+
+            if (self.isTraining):
+                self.KL=0.
+                # use cross_entropy as class loss
+                self.loss = tf.losses.softmax_cross_entropy(onehot_labels=self.groundtruths, logits=self.logits)
+                self.KL=tf.add_n(tf.get_collection("KL_layers"), "KL")
+
+            self.cost=(self.loss+self.KL)/self.batch_size  #the total cost need to divide by batch size
+            self.optimizer = tf.train.AdamOptimizer(0.02).minimize(self.loss)
+
+        #with tf.variable_scope('rnn_accuracy'):
+            # self.accuracy = tf.contrib.metrics.accuracy(labels=tf.argmax(self.groundtruths, axis=1), predictions=self.prediction)
+
+        self.sess = tf.Session()
+        self.sess.run(tf.global_variables_initializer())  # don't forget to initial all variables
+        self.saver = tf.train.Saver()  # a saver is for saving or restoring your trained weight
+
+        print("Completed creating the graph")
+
+    def train(self, batch_x, batch_y, state):
+
+        fd = {}
+        fd[self.inputs] = batch_x
+        fd[self.groundtruths] = batch_y
+        fd[self.initial_state] = state
+        # feed in input and groundtruth to get loss and update the weight via Adam optimizer
+        loss, accuracy, final_state, _ = self.sess.run([self.loss, self.accuracy, self.final_state, self.optimizer], fd)
+
+        return loss, accuracy, final_state
+
+    def test(self, batch_x, batch_y, batch_size):
 
         """
-        try:
-            if not stopping:
-                # fit the model
-                self.model.fit(X_train, Y_train, epochs=epochs, validation_split=0.2, batch_size=batch_size)
-            else:
-                # prepare for early stopping
-                early_stopping = keras.callbacks.EarlyStopping(monitor='binary_cross_entropy', min_delta=0,
-                                                         patience=300, verbose=0, mode='auto',
-                                                         baseline=None, restore_best_weights=False)
-                # fit the model
-                self.model.fit(X_train, Y_train, epochs=epochs, validation_split=0.2, batch_size=batch_size, callbacks=[early_stopping])
+         NEED TO RE-WRITE this function interface by adding the state
+        :param batch_x:
+        :param batch_y:
+        :return
 
-            # return the model
-            return self.model
-        except:
-            return keras.models.Model()
+        """
+        # restore the model
 
+        # with tf.Session() as sess:
+        #    model=model.restore();
+
+        test_state = model.cell.zero_state(batch_size, tf.float32)
+        fd = {}
+        fd[self.inputs] = batch_x
+        fd[self.groundtruths] = batch_y
+        fd[self.initial_state] = test_state
+        prediction, accuracy = self.sess.run([self.prediction, self.accuracy], fd)
+
+        return prediction, accuracy
+
+    def save(self, e):
+        self.saver.save(self.sess, 'model/rnn/rnn_%d.ckpt' % (e + 1))
+
+    def restore(self, e):
+        self.saver.restore(self.sess, 'model/rnn/rnn_%d.ckpt' % (e))
+
+    def build_lstm_layers(self, lstm_sizes, inputs, keep_prob_, batch_size):
+        """
+        Create the LSTM layers
+        inputs: array containing size of hidden layer for each lstm,
+                input_embedding, for the shape batch_size, sequence_length, emddeding dimension [None, None, 384],
+                None and None are to handle variable batch size and variable sequence length
+                keep_prob for the dropout and batch_size
+
+        outputs: initial state for the RNN (lstm) : tuple of [(batch_size, hidden_layer_1), (batch_size, hidden_layer_2)]
+                 outputs of the RNN [Batch_size, sequence_length, last_hidden_layer_dim]
+                 RNN cell: tensorflow implementation of the RNN cell
+                 final state: tuple of [(batch_size, hidden_layer_1), (batch_size, hidden_layer_2)]
+
+        """
+        self.lstms=[]
+        for i in range (0,len(lstm_sizes)):
+            self.lstms.append(SmilesLSTMCell_Bayesian(lstm_sizes[i], self.prior, self.isTraining, 'lstm'+str(i)))
+
+        # Stack up multiple LSTM layers, for deep learning
+        cell = tf.contrib.rnn.MultiRNNCell(self.lstms)
+        # Getting an initial state of all zeros
+
+        initial_state = cell.zero_state(batch_size, tf.float32)
+        # perform dynamic unrolling of the network, for variable
+        #lstm_outputs, final_state = tf.nn.dynamic_rnn(cell, embed_input, initial_state=initial_state)
+
+        # we avoid dynamic RNN, as this produces while loop errors related to gradient checking
+        if True:
+            outputs = []
+            state = initial_state
+            with tf.variable_scope("RNN"):
+                for time_step in range(self.max_sequence_length):
+                    if time_step > 0: tf.get_variable_scope().reuse_variables()
+                    (cell_output, state) = cell(inputs[:, time_step, :], state)
+                    outputs.append(cell_output)
+
+        final_lstm_outputs = cell_output
+        final_state = state
+        #outputs=tf.reshape(tf.concat(1, outputs), [-1, self.embedding_dim])
+
+
+        return initial_state, final_lstm_outputs, final_state, cell
 
 # Graph convolutional layer for building the GCN model
 class GCNConv(tf.keras.layers.Layer):
-        """
+    """
     Class object for graph convolutional layer
 
     Parameters

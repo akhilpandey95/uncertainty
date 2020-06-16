@@ -33,14 +33,50 @@ def data_processing(file_path, target):
         # read the dataset
         data = pd.read_csv(file_path, low_memory=False)
 
-        # get a sample of the data
-        data = data.sample(frac=0.25, random_state=2019)
-
-        # reset the index for the dataframe
-        data = data.reset_index(drop=True)
-
         # return the dataframe
         return data
     except:
         return pd.DataFrame()
 
+# function for preparing embeddings
+def prepare_embeddings(data, X):
+    """
+    Prepare the one hot encoded vector for the smile strings of every compound
+
+    Parameters
+    ----------
+    arg1 | data: pandas.DataFrame
+        A dataframe consisting of necessary columns for extracting Smiles
+    arg2 | X: numpy.ndarray
+        An array consisting of texts from the dataframe that would be converted
+        into word embeddings
+
+    Returns
+    -------
+    Array
+        numpy.ndarray
+
+    """
+    try:
+        # find the maximum words and maximum length for the given dataset
+        max_words = max(list(map(lambda x: len(x.split()), tqdm(data[X]))))
+
+        # find max length of the text for the given dataset
+        max_len = max(list(map(len, tqdm(data[X]))))
+
+        # init the tokenizer class object
+        tok = Tokenizer(char_level=True)
+
+        # fit the tokenizer on the text data
+        tok.fit_on_texts(data[X])
+
+        # generate the sequences
+        sequences = tok.texts_to_sequences(data[X])
+
+        # obtain the sequence matrix
+        X = sequence.pad_sequences(sequences, maxlen=max_len)
+
+        # return the dataframe
+        return X
+    except:
+        return np.zeros(20).reshape(2, 10)

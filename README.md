@@ -6,7 +6,7 @@ The repository consists of information assosicated with the research on uncertai
 - `src/` - Code, documentation, and essential information about the models built for the project.
 - `scripts/` - Essential scripts necessary for setting up the project.
 - `tests/` - Deterministic unit tests for better replication of the results.
-- `examples/` - Jupyter notebook(s) with sample code showcasing how to utilize the resources of the project.
+- `notebooks/` - Jupyter notebook(s) with sample code showcasing how to utilize the resources of the project.
 
 ## Branches & Labels
 The repository follows an issue based approach to commit code/doc/information. The following

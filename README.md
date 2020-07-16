@@ -2,6 +2,7 @@
 
 ## About
 The repository consists of information assosicated with the research on uncertainity quantification for graph neural network architectures. This work was part of an internship at [ANL](https://www.anl.gov/mcs) in the Mathematics and Computer Sciences (MCS) division. The repository has 5 directories:
+- `data/` - The directory that consists of the datasets in the form of pickled files
 - `literature/` - Summaries of all the scholarly articles that are read through the course of the project.
 - `src/` - Code, documentation, and essential information about the models built for the project.
 - `scripts/` - Essential scripts necessary for setting up the project.

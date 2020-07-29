@@ -70,8 +70,8 @@ On the test set,
 
 | Model  | MSE | MAE| RMSE | R2 |
 |--------|:--------------:|:------------:|:---------:|:------:|
-| **Graph Convolutional Network (GCN)** | - | - | - | - |
-| **GCN with MC Dropout** | - | - | - | - |
+| **Graph Convolutional Network (GCN)** | 15498.9595 | 75.9521 | 124.4948 | 0.6830 |
+| **GCN with MC Dropout** | 23116.5562 | 119.5583 | 152.0412 | 0.5272 |
 | **GCN with Ensemble MC Dropout** | - | - | - | - |
 | **GCN with DeepEnsembles** | - | - | - | - |
 | **GCN with SQR, and ONC** | - | - | - | - |
@@ -81,8 +81,8 @@ On the validation set,
 
 | Model  | MSE | MAE| RMSE | R2 |
 |--------|:--------------:|:------------:|:---------:|:------:|
-| **Graph Convolutional Network (GCN)** | - | - | - | - |
-| **GCN with MC Dropout** | - | - | - | - |
+| **Graph Convolutional Network (GCN)** | 10658.5007 | 68.3195 | 103.2400 | 0.7811 |
+| **GCN with MC Dropout** | 17058.3652 | 106.2512 | 130.6076 | 0.6497 |
 | **GCN with Ensemble MC Dropout** | - | - | - | - |
 | **GCN with DeepEnsembles** | - | - | - | - |
 | **GCN with SQR, and ONC** | - | - | - | - |

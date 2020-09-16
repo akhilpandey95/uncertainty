@@ -4,16 +4,14 @@
 # https://github.com/akhilpandey95/uncertainty/blob/master/LICENSE.
 
 import numpy as np
-import seaborn as sns
 import deepchem as dc
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras import layers
 from sklearn.metrics import *
-import matplotlib.pyplot as plt
 from deepchem.feat.mol_graphs import ConvMol
 from layers import GraphConv, GraphPool, GraphGather, TrimGraphOutput
-# from layers import GraphConv, GraphPool, GraphGather, TrimGraphOutput, GraphConvModel
+# from deepchem.models.layers import GraphConv, GraphPool, GraphGather, TrimGraphOutput
 
 # load the qm7 dataset
 tasks, datasets, transformers = dc.molnet.load_qm7_from_mat(
@@ -72,15 +70,6 @@ def reshape_y_pred(y_true, y_pred):
     n_samples = len(y_true)
     return y_pred[:n_samples, :]
 
-
-class MSE(dc.models.losses.Loss):
-    def __init__(self):
-        super().__init__()
-
-    def __call__(self, output, labels):
-        output, labels = _make_shapes_consistent(output, labels)
-        return tf.keras.losses.MSE(labels, output)
-
 class QuantileLoss(dc.models.losses.Loss):
     """
     Custom Pinball loss function for training GCN
@@ -101,6 +90,30 @@ class QuantileLoss(dc.models.losses.Loss):
         output, labels = _make_shapes_consistent(output, labels)
         diff = tf.math.subtract(output, labels)
         return K.mean(K.maximum(self.tau * diff, (self.tau - 1) * diff), axis=-1)
+
+# custom gaussian loss function
+class GaussLoss(dc.models.losses.Loss):
+    """
+    Class object for gaussian loss
+    Parameters
+    ----------
+    arg1 | sigma: float32
+        Value of sigma
+    Returns
+    -------
+    Neural Network Loss Function
+        dc.models.losses.Loss
+    """
+
+    def __init__(self, sigma):
+        super().__init__()
+        self.sigma = sigma
+
+    def call(self, y_true, y_pred):
+        output, labels = _make_shapes_consistent(output, labels)
+        diff = tf.math.subtract(output, labels)
+        return K.mean(0.5*tf.math.log(self.sigma) + \
+                0.5*tf.math.divide(tf.math.square(diff), self.sigma)) + 1e-6
 
 def data_generator(dataset, batch_size=None, epochs=1, predict=False, pad_batches=True):
     """
@@ -124,7 +137,8 @@ def data_generator(dataset, batch_size=None, epochs=1, predict=False, pad_batche
         (numpy.ndarray32, numpy.ndarray32, numpy.ndarray32)
     """
     for epoch in range(epochs):
-        for ind, (X_b, y_b, w_b, ids_b) in enumerate(dataset.iterbatches(64,pad_batches=pad_batches,
+        for ind, (X_b, y_b, w_b, ids_b) in enumerate(dataset.iterbatches(64,
+                                                                         pad_batches=pad_batches,
                                                                          deterministic=True)):
             # init the ConvMol obj to get the inputs
             multiConvMol = ConvMol.agglomerate_mols(X_b)
@@ -171,7 +185,7 @@ def create_gcn_model():
         deg_adjs.append(deg_adj)
 
     # first GCN layer with 64 channels
-    gc1 = GraphConv(64, activation_fn=tf.nn.relu)([atom_features,
+    gc1 = GraphConv(128, activation_fn=tf.nn.relu)([atom_features,
                                                    degree_slice, membership] + deg_adjs)
 
     # Batch norm for the first GCN layer with 64 channels
@@ -181,7 +195,7 @@ def create_gcn_model():
     gp1 = GraphPool()([batch_norm1, degree_slice, membership] + deg_adjs)
 
     # second GCN layer with 64 channels
-    gc2 = GraphConv(64, activation_fn=tf.nn.relu)(
+    gc2 = GraphConv(128, activation_fn=tf.nn.relu)(
         [gp1, degree_slice, membership] + deg_adjs)
 
     # Batch norm for the second GCN layer with 64 channels
@@ -191,7 +205,7 @@ def create_gcn_model():
     gp2 = GraphPool()([batch_norm2, degree_slice, membership] + deg_adjs)
 
     # Dense layer with 128 neurons
-    dense = layers.Dense(128, activation=tf.nn.relu)(gp2)
+    dense = layers.Dense(512, activation=tf.nn.relu)(gp2)
 
     # Batch norm for the Dense layer with 128 neurons
     batch_norm3 = layers.BatchNormalization()(dense)
@@ -216,15 +230,16 @@ def create_gcn_model():
     # return the model
     return model
 
+
 # create the gcn model
 gcn_model = create_gcn_model()
 
 # setup the loss function
 loss = dc.models.losses.L2Loss()
-# # loss = QuantileLoss(0.0)
-# # loss = QuantileLoss(0.025)
-# # loss = QuantileLoss(0.5)
-# # loss = QuantileLoss(0.975)
+# loss = QuantileLoss(0.0)
+# loss = QuantileLoss(0.025)
+# loss = QuantileLoss(0.5)
+# loss = QuantileLoss(0.975)
 
 # build the keras model of deepchem
 model = dc.models.KerasModel(gcn_model, loss=loss)
@@ -238,59 +253,17 @@ for i in range(num_epochs):
     loss = model.fit_generator(data_generator(train_dataset, epochs=1))
     print("Epoch %d loss: %f" % (i, loss))
     losses.append(loss)
-#
-# model.fit_generator(data_generator(train_dataset, epochs=10))
+
+# model.fit_generator(data_generator(train_dataset, epochs=1))
+
+print("Evaluating model")
+eval_metrics = model.evaluate_generator(data_generator(test_dataset, predict=True), metric, transformers)
 
 # print("Evaluating model")
-# eval_metrics = model.evaluate_generator(data_generator(test_dataset, predict=True), metric, transformers)
 # preds = model.predict_on_generator(data_generator(test_dataset, predict=True))
-# y_pred = reshape_y_pred(test_dataset.y, preds)
-#
-# fig = plt.figure(num=None, figsize=(10,8), dpi=300)
-# # plt.style.use('dark_background')
-# sns.set_style('whitegrid')
-# plt.rcParams['axes.prop_cycle']
-# sns.plotting_context("talk", rc={"lines.linewidth": 2})
-# plt.grid(b=False)
-#
-# y_test = test_dataset.y
-#
-# fig.tight_layout()
-# ax = fig.add_subplot(111)
-# ax.set_xlabel(r"Y$_{true}$", fontsize=15)
-# ax.set_ylabel(r"Y$_{predicted}$", fontsize=15)
-# ax.set_xlim(np.min(y_test), np.max(y_test))
-# # ax.set_ylim(np.min(y_pred), np.max(y_pred))
-# ax.plot([np.min(y_test), np.max(y_test)], [np.min(y_test), np.max(y_test)],\
-#         "--", color="red", \
-#         label=r"Linear Regression, $y = \beta_0 + \beta_{1}x$")
-# ax.plot(y_test, y_pred, "+", color='blue', markersize=10, label="Test Data")
-#
-# plt.title("""Plotting predictions from test set for simple GCN model
-#          predicting the molecules from the QM7 dataset""",\
-#           fontsize=15)
-# plt.legend(fontsize=13)
-# plt.show()
-
+# preds = reshape_y_pred(test_dataset.y, preds)
 # mae_scores = metric[0].compute_metric(test_dataset.y, preds, test_dataset.w)
+
 # mse_scores = metric[1].compute_metric(test_dataset.y, preds, test_dataset.w)
 # r2_scores = metric[2].compute_metric(test_dataset.y, preds, test_dataset.w)
 # print("Test MAE Score: %f" % mae_scores)
-
-################################################################################
-# gcn_model = GraphConvModel(1, batch_size=batch_size, learning_rate=0.001)
-#
-# losses = []
-# for i in range(num_epochs):
-#     loss = gcn_model.fit(train_dataset, nb_epoch=1)
-#     print("Epoch %d loss: %f" % (i, loss))
-#     losses.append(loss)
-#
-# gcn_model.model.summary()
-#
-# print("Evaluating model")
-# test_scores = gcn_model.evaluate(test_dataset, metric, transformers)
-# valid_scores = gcn_model.evaluate(valid_dataset, metric, transformers)
-#
-# print(test_scores)
-# print(valid_scores)

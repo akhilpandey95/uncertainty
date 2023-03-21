@@ -56,7 +56,7 @@ For the models predicting the y values of the `sin` dataset, we have used a simp
 Linear regression on the `sin` dataset: 
 
 | Model  | MSE | MAE| RMSE | R2 | Training time | Inference Time |
-|--------|:--------------:|:------------:|:---------:|:------:|
+|--------|:---:|---:|-----:|---:|:-------------:|:--------------:|
 | **Fully Connected Network (FCN)** | 1.0053 | 0.8078 | 1.0026 | 0.9813 | 33.4 s| 246 ms| 
 | **FCN with MC Dropout** | 1.4041 | 0.9555 | 1.1849 | 0.9740 | 15.7 s| 54.7 s|
 | **FCN with Ensemble MC Dropout** | 1.4430 | 0.9697 | 1.2012 | 0.9733 | 5min 56s| 32min 19s|
@@ -70,7 +70,7 @@ Linear regression on the `QM7` dataset :
 On the test set,
 
 | Model  | MSE | MAE| RMSE | R2 | Training Time | Inference Time |
-|--------|:--------------:|:------------:|:---------:|:------:|
+|--------|:---:|---:|-----:|---:|:-------------:|:--------------:|
 | **Graph Convolutional Network (GCN)** | 15498.9595 | 75.9521 | 124.4948 | 0.6830 | 2min 30s| 444 ms|
 | **GCN with MC Dropout** | 23116.5562 | 119.5583 | 152.0412 | 0.5272 | 1min 51s| 8.46 s|
 | **GCN with Ensemble MC Dropout** | 23382.3769 | 121.7387 | 152.9129 | 0.5218 | 1h 45s| 6min 46s|
@@ -81,7 +81,7 @@ On the test set,
 On the validation set,
 
 | Model  | MSE | MAE| RMSE | R2 | Inference Time |
-|--------|:--------------:|:------------:|:---------:|:------:|
+|--------|:---:|---:|-----:|---:|:--------------:|
 | **Graph Convolutional Network (GCN)** | 10658.5007 | 68.3195 | 103.2400 | 0.7811 | 153 ms|
 | **GCN with MC Dropout** | 17058.3652 | 106.2512 | 130.6076 | 0.6497 | 7.99 s|
 | **GCN with Ensemble MC Dropout** | 18296.0994 | 112.2832 | 135.2630 | 0.6243s | 3min 36s|
